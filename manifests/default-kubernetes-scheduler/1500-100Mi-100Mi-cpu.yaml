@@ -1,0 +1,96 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    kubernetes.io/metadata.name: test-default-kubernetes-scheduler-1500-100-100
+  name: test-default-kubernetes-scheduler-1500-100-100
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stress-test
+  namespace: test-default-kubernetes-scheduler-1500-100
+spec:
+  replicas: 1500
+  selector:
+    matchLabels:
+      app: pause
+  template:
+    metadata:
+      annotations:
+        kubernetes.io/ingress-bandwidth: 100M
+        kubernetes.io/egress-bandwidth: 100M
+        kubernetes.io/ingress-request: 100M
+        kubernetes.io/egress-request: 100M
+      labels:
+        app: pause
+    spec:
+      schedulerName: default-kubernetes-scheduler
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: type
+                    operator: In
+                    values:
+                      - kwok
+      tolerations:
+        - key: "kwok.x-k8s.io/node"
+          operator: "Exists"
+          effect: "NoSchedule"
+      containers:
+        - name: pause-container
+          image: gcr.io/google_containers/pause:3.2
+          resources:
+            requests:
+              cpu: "0.1"
+              memory: "10Mi"
+            limits:
+              cpu: "0.1"
+              memory: "10Mi"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stress-test
+  namespace: cpu-workload-default-kubernetes-scheduler-guaranteed
+spec:
+  replicas: 1600
+  selector:
+    matchLabels:
+      app: cpu-memory
+  template:
+    metadata:
+      annotations:
+        kubernetes.io/ingress-bandwidth: "0"
+        kubernetes.io/egress-bandwidth: "0"
+        kubernetes.io/ingress-request: "0"
+        kubernetes.io/egress-request: "0"
+      labels:
+        app: cpu-memory
+    spec:
+      schedulerName: default-kubernetes-scheduler
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: type
+                    operator: In
+                    values:
+                      - kwok
+      tolerations:
+        - key: "kwok.x-k8s.io/node"
+          operator: "Exists"
+          effect: "NoSchedule"
+      containers:
+        - name: pause-container
+          image: gcr.io/google_containers/pause:3.2
+          resources:
+            requests:
+              cpu: "2"
+              memory: "16Gi"
+            limits:
+              cpu: "2"
+              memory: "16Gi"

@@ -1,0 +1,102 @@
+diff --git a/cmd/scheduler/main.go b/cmd/scheduler/main.go
+index d30dae7..efc591b 100644
+--- a/cmd/scheduler/main.go
++++ b/cmd/scheduler/main.go
+@@ -24,6 +24,7 @@ import (
+ 
+ 	"sigs.k8s.io/scheduler-plugins/pkg/capacityscheduling"
+ 	"sigs.k8s.io/scheduler-plugins/pkg/coscheduling"
++	"sigs.k8s.io/scheduler-plugins/pkg/networkaware/networkbandwidth"
+ 	"sigs.k8s.io/scheduler-plugins/pkg/networkaware/networkoverhead"
+ 	"sigs.k8s.io/scheduler-plugins/pkg/networkaware/topologicalsort"
+ 	"sigs.k8s.io/scheduler-plugins/pkg/noderesources"
+@@ -56,6 +57,7 @@ func main() {
+ 		app.WithPlugin(qos.Name, qos.New),
+ 		app.WithPlugin(networkoverhead.Name, networkoverhead.New),
+ 		app.WithPlugin(topologicalsort.Name, topologicalsort.New),
++		app.WithPlugin(networkbandwidth.Name, networkbandwidth.New),
+ 	)
+ 
+ 	code := cli.Run(command)
+diff --git a/manifests/install/charts/as-a-second-scheduler/templates/deployment.yaml b/manifests/install/charts/as-a-second-scheduler/templates/deployment.yaml
+index ba284fd..da93695 100644
+--- a/manifests/install/charts/as-a-second-scheduler/templates/deployment.yaml
++++ b/manifests/install/charts/as-a-second-scheduler/templates/deployment.yaml
+@@ -15,7 +15,7 @@ spec:
+       labels:
+         app: scheduler-plugins-controller
+     spec:
+-      serviceAccountName: scheduler-plugins-controller
++      serviceAccountName: {{ .Values.controller.name }}
+       containers:
+       - name: scheduler-plugins-controller
+         image: {{ .Values.controller.image }}
+@@ -38,7 +38,7 @@ spec:
+       labels:
+         component: scheduler
+     spec:
+-      serviceAccountName: scheduler-plugins-scheduler
++      serviceAccountName: {{ .Values.scheduler.name }}
+       containers:
+       - command:
+         - /bin/kube-scheduler
+diff --git a/manifests/install/charts/as-a-second-scheduler/templates/rbac.yaml b/manifests/install/charts/as-a-second-scheduler/templates/rbac.yaml
+index bc91da6..41ece0b 100644
+--- a/manifests/install/charts/as-a-second-scheduler/templates/rbac.yaml
++++ b/manifests/install/charts/as-a-second-scheduler/templates/rbac.yaml
+@@ -1,7 +1,7 @@
+ apiVersion: rbac.authorization.k8s.io/v1
+ kind: ClusterRole
+ metadata:
+-  name: scheduler-plugins-scheduler
++  name: {{ .Values.scheduler.name }}
+ rules:
+ - apiGroups: [""]
+   resources: ["namespaces"]
+@@ -70,11 +70,11 @@ rules:
+ kind: ClusterRoleBinding
+ apiVersion: rbac.authorization.k8s.io/v1
+ metadata:
+-  name: scheduler-plugins-scheduler
++  name: {{ .Values.scheduler.name }}
+ roleRef:
+   apiGroup: rbac.authorization.k8s.io
+   kind: ClusterRole
+-  name: scheduler-plugins-scheduler
++  name: {{ .Values.scheduler.name }}
+ subjects:
+ - kind: ServiceAccount
+   name: {{ .Values.scheduler.name }}
+@@ -83,7 +83,7 @@ subjects:
+ kind: ClusterRole
+ apiVersion: rbac.authorization.k8s.io/v1
+ metadata:
+-  name: scheduler-plugins-controller
++  name: {{ .Values.controller.name }}
+ rules:
+ - apiGroups: [""]
+   resources: ["pods"]
+@@ -102,20 +102,20 @@ rules:
+ kind: ClusterRoleBinding
+ apiVersion: rbac.authorization.k8s.io/v1
+ metadata:
+-  name: scheduler-plugins-controller
++  name: {{ .Values.controller.name }}
+ subjects:
+ - kind: ServiceAccount
+   name: {{ .Values.controller.name }}
+   namespace: {{ .Values.controller.namespace }}
+ roleRef:
+   kind: ClusterRole
+-  name: scheduler-plugins-controller
++  name: {{ .Values.controller.name }}
+   apiGroup: rbac.authorization.k8s.io
+ ---
+ apiVersion: rbac.authorization.k8s.io/v1
+ kind: RoleBinding
+ metadata:
+-  name: sched-plugins::extension-apiserver-authentication-reader
++  name: {{ .Values.scheduler.name }}::extension-apiserver-authentication-reader
+   namespace: kube-system
+ roleRef:
+   apiGroup: rbac.authorization.k8s.io
